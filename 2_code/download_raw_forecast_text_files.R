@@ -8,21 +8,36 @@ library(RTidyHTML)
 library(XML)
 library(RDCOMClient) 
 
-setwd("C:/Users/Alan/Dropbox/Yan/1_data/hurricanes/ForecastAdvisories/raw")
-years <- c(1998:2018)
-working_years <- c(1998:2018)
-greek_names <- c("ALPHA.html", "BETA.html", "GAMMA.html", "DELTA.html", "EPSILON.html", 
-                 "ZETA.html", "ETA.html", "THETA.html", "IOTA.html", "KAPPA.html", 
-                 "LAMBDA.html", "MU.html", "NU.html", "XI.html", "OMICRON.html",
-                 "PI.html", "RHO.html", "SIGMA.html", "TAU.html", "UPSILON.html", 
-                 "PHI.html", "CHI.html", "PSI.html", "OMEGA.html")
+main_dir <- "C:/Users/Alan/Documents/Hurricanes"
+setwd(main_dir)
+years <- c(1999:2018)
+greek_names <- c("ALPHA.shtml?", "BETA.shtml?", "GAMMA.shtml?", "DELTA.shtml?", "EPSILON.shtml?", 
+                 "ZETA.shtml?", "ETA.shtml?", "THETA.shtml?", "IOTA.shtml?", "KAPPA.shtml?", 
+                 "LAMBDA.shtml?", "MU.shtml?", "NU.shtml?", "XI.shtml?", "OMICRON.shtml?",
+                 "PI.shtml?", "RHO.shtml?", "SIGMA.shtml?", "TAU.shtml?", "UPSILON.shtml?", 
+                 "PHI.shtml?", "CHI.shtml?", "PSI.shtml?", "OMEGA.shtml?")
 number_names <- c("ONE.html", "TWO.html", "THREE.html", "FOUR.html", "FIVE.html", 
                   "SIX.html", "SEVEN.html", "EIGHT.html", "NINE.html", "TEN.html", 
                   "ELEVEN.html", "TWELVE.html", "THIRTEEN.html", "FOURTEEN.html", "FIFTEEN.html", 
                   "SIXTEEN.html", "SEVENTEEN.html", "EIGHTTEEN.html", "NINETEEN.html", "TWENTY.html", 
                   "TWENTY-ONE.html", "TWENTY-TWO.html", "TWENTY-THREE.html", "TWENTY-FOUR.html", "TWENTY-FIVE.html", 
-                  "TWENTY-SIX.html", "TWENTY-SEVEN.html", "TWENTY-EIGHT.html", "TWENTY-NINE.html", "THIRTY.html")
-
+                  "TWENTY-SIX.html", "TWENTY-SEVEN.html", "TWENTY-EIGHT.html", "TWENTY-NINE.html", "THIRTY.html",
+                  "ONE.shtml?", "TWO.shtml?", "THREE.shtml?", "FOUR.shtml?", "FIVE.shtml?", 
+                  "SIX.shtml?", "SEVEN.shtml?", "EIGHT.shtml?", "NINE.shtml?", "TEN.shtml?", 
+                  "ELEVEN.shtml?", "TWELVE.shtml?", "THIRTEEN.shtml?", "FOURTEEN.shtml?", "FIFTEEN.shtml?", 
+                  "SIXTEEN.shtml?", "SEVENTEEN.shtml?", "EIGHTTEEN.shtml?", "NINETEEN.shtml?", "TWENTY.shtml?", 
+                  "TWENTY-ONE.shtml?", "TWENTY-TWO.shtml?", "TWENTY-THREE.shtml?", "TWENTY-FOUR.shtml?", "TWENTY-FIVE.shtml?", 
+                  "TWENTY-SIX.shtml?", "TWENTY-SEVEN.shtml?", "TWENTY-EIGHT.shtml?", "TWENTY-NINE.shtml?", "THIRTY.shtml?")
+storm_folder_names <- c("001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
+                        "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
+                        "021", "022", "023", "024", "025", "026", "027", "028", "029", "030",
+                        "031", "032", "033", "034", "035", "036", "037", "038", "039", "040",
+                        "041", "042", "043", "044", "045", "046", "047", "048", "049", "050",
+                        "051", "052", "053", "054", "055", "056", "057", "058", "059", "060",
+                        "061", "062", "063", "064", "065", "066", "067", "068", "069", "070",
+                        "071", "072", "073", "074", "075", "076", "077", "078", "079", "080",
+                        "081", "082", "083", "084", "085", "086", "087", "088", "089", "090",
+                        "091", "092", "093", "094", "095", "096", "097", "098", "099", "100")
 # Included External Function to convert HTML to text
 
 # Author: Tony Breyal
@@ -92,8 +107,15 @@ htmlToText <- function(input, ...) {
 ############################################################
 #Start of code to download raw forecast advisory text files#
 ############################################################
-for(year in working_years) {
+for(year in years) {
   print(year)
+  
+  sub_dir <- paste("/", year, sep = "")
+  year_dir <- file.path(main_dir, sub_dir)
+  if (!dir.exists(year_dir)){
+    dir.create(year_dir)
+  }
+  
   if (year == 1998) {
     year_url <- "https://www.nhc.noaa.gov/archive/1998/1998archive.shtml"
   } else {
@@ -113,8 +135,12 @@ for(year in working_years) {
   a_letter_name_appeared <- FALSE
   for(storm_link in storm_links) {
     first_char <- substr(storm_link, 1, 1)
-    if((a_letter_name_appeared && storm_link != "ALPHA.html" && first_char == "A") || 
-       (grepl("-E", storm_link) && (!storm_link %in% number_names))) {
+    if (year == 1998 && storm_link == "1998AGATHAadv.html") {
+      break;
+    }
+    if((a_letter_name_appeared && storm_link != "ALPHA.shtml?" && first_char == "A") || 
+       (grepl("-E", storm_link) && (!storm_link %in% number_names)) || 
+       (grepl("MEP", storm_link))) {
       break
     }
     if(!a_letter_name_appeared) {
@@ -130,7 +156,13 @@ for(year in working_years) {
   }
   atlantic_storm_links <- storm_links[c(1:storm_counter)]
   
+  storm_in_year_counter <- 1
   for(atlantic_storm_link in atlantic_storm_links) {
+    storm_sub_dir <- paste("/", storm_in_year_counter, sep = "")
+    storm_dir <- file.path(year_dir, storm_sub_dir)
+    if (!dir.exists(storm_dir)) {
+      dir.create(storm_dir)
+    }
     storm_html_link <- paste("https://www.nhc.noaa.gov/archive/",year,"/",atlantic_storm_link,sep = "")
     storm_page <- read_html(storm_html_link)
     all_links <- storm_page %>% 
@@ -143,6 +175,7 @@ for(year in working_years) {
     }
     
     print(forecast_links)
+    
     for (forecast_adv_link in forecast_links) {
       if(year == 1998) {
         forecast_url <- paste("https://www.nhc.noaa.gov/archive/1998/", forecast_adv_link, sep = "")
@@ -159,12 +192,12 @@ for(year in working_years) {
       }
       fileName <- gsub('\\.', '-', fileName)
       print(fileName)
-      fileLoc <- paste("C:/Users/Alan/Dropbox/Yan/1_data/hurricanes/ForecastAdvisories/raw", 
-                       year, "/", fileName, ".txt", sep = "")
+      fileLoc <- paste(storm_dir, "/", fileName, ".txt", sep = "")
       file.create(fileLoc)
       fileConn<-file(fileLoc)
       writeLines(txt, fileConn)
       close(fileConn)
     }
+    storm_in_year_counter <- storm_in_year_counter + 1
   }
 }
