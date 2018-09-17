@@ -10,7 +10,7 @@ library(RDCOMClient)
 
 main_dir <- "C:/Users/Alan/Documents/Hurricanes"
 setwd(main_dir)
-years <- c(1999:2018)
+years <- c(1998:2018)
 greek_names <- c("ALPHA.shtml?", "BETA.shtml?", "GAMMA.shtml?", "DELTA.shtml?", "EPSILON.shtml?", 
                  "ZETA.shtml?", "ETA.shtml?", "THETA.shtml?", "IOTA.shtml?", "KAPPA.shtml?", 
                  "LAMBDA.shtml?", "MU.shtml?", "NU.shtml?", "XI.shtml?", "OMICRON.shtml?",
