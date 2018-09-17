@@ -1,7 +1,9 @@
 # Written by undergrad research assistant Alan Yan
-
+library(stringr)
+library(plyr)
+library(reshape2)
 main_dir <- "C:/Users/Alan/Documents/Hurricanes/"
-years <- c(1998:1998)
+years <- c(1998:2018)
 
 number_names <- c("ONE", "TWO", "THREE", "FOUR", "FIVE", 
                   "SIX", "SEVEN", "EIGHT", "NINE", "TEN", 
@@ -50,10 +52,14 @@ parseStormLevelAndName <- function(line) {
 }
 
 parseFileDateAndTime <- function(line, row_entry) {
+  x <- str_extract_all(line,"\\(?[0-9]+\\)?")[[1]]
   words <- strsplit(line, " ")
-  #time is in format ####Z, want first four characters
-  file_time <- substr(words[[1]][1], 1, 4)
-  file_date <- paste(month_nums[words[[1]][3]], "/", words[[1]][4], "/", words[[1]][5], sep = "")
+  file_time <- x[1]
+  month_index <- 3
+  if (words[2] == "UTC") {
+    month_index <- month_index + 1
+  }
+  file_date <- paste(month_nums[words[[1]][month_index]], "/", x[2], "/", x[3], sep = "")
   if(is.na(file_time) || is.na(file_date)) {
     print("BAD file_time OR file_date")
     print(line)
@@ -87,27 +93,42 @@ parseCurrMaxWindAndGusts <- function(line) {
   return(c(max_wind, gusts))
 }
 
+isEyeSpeedLocationInvalid <- function(eye_speed, eye_location) {
+  if(!grepl("^[0-9]+$", eye_speed) || !grepl("^[0-9]+$", eye_location) || is.na(eye_speed) || is.na(eye_location)) {
+    return(TRUE)
+  } else {
+    return(FALSE)
+  }
+}
+
 parseEyeSpeedAndLocation <- function(line) {
-  words <- strsplit(line, " ")
-  eye_speed <- words[[1]][11]
-  eye_location <- words[[1]][8]
-  if(is.na(eye_speed) || is.na(eye_location)) {
-    eye_speed <- words[[1]][9]
-    eye_location <- words[[1]][6]
-    if(is.na(eye_speed) || is.na(eye_location)) {
-      print("BAD eye_speed OR eye_location")
-      print(line)
-    }
+  x <- str_extract_all(line,"\\(?[0-9]+\\)?")[[1]]
+  eye_speed <- x[2]
+  eye_location <- x[1]
+  if(isEyeSpeedLocationInvalid(eye_speed, eye_location)) {
+    print("BAD eye_speed OR eye_location")
+    print(line)
+    print(paste("Eye_speed: ", eye_speed, " Location: ", eye_location, sep = ""))
   }
   return(c(eye_speed, eye_location))
 }
 
+isPrevLatLongTimeInvalid <- function(lat, long, time) {
+  if(!grepl("\\(?[0-9]+\\)?", time) || !grepl("[0-9]+\\.[0-9]+", lat) || !grepl("[0-9]+\\.[0-9]+", long)) {
+    return(TRUE) 
+  } else {
+    return(FALSE)
+  }
+}
+
 parsePrevLatLongAndTime <- function(line) {
   words <- strsplit(line, " ")
-  time <- substr(words[[1]][2], length(words[[1]][2]) - 4, length(words[[1]][2]) - 1)
-  lat <- words[[1]][7]
-  long <- words[[1]][9]
-  if(is.na(lat) || is.na(long) || is.na(time)) { #when longitude >= 100.0
+  x <- str_extract_all(line,"\\(?[0-9]+\\)?")[[1]]
+  lat_long <- str_extract_all(line, "[0-9]+\\.[0-9]+")[[1]]
+  lat <- lat_long[1]
+  long <- lat_long[2]
+  time <- x[2]
+  if(is.na(lat) || is.na(long) || is.na(time) || isPrevLatLongTimeInvalid(lat,long,time)) { #when longitude >= 100.0
     lat <- words[[1]][7]
     long <- substr(words[[1]][8], 1, 6)
     if(is.na(lat) || is.na(long) || is.na(time)) { 
@@ -122,14 +143,17 @@ parseActualLines <- function(lines) {
   curr_row <- initNewRow()
   three_hours_prev_row <- initNewRow()
   
-  
+  #print(lines)
   curr_row$actual_or_forecast <- "A"
   curr_row$storm_end <- 0
   
   for (i in 1:length(lines)) {
-    if (grepl(" FORECAST/ADVISORY NUMBER", lines[i])) {
-      if (grepl("^SPECIAL", lines[i])) { #Two cases where the line begins with Special Forecast... and does not have name+level on line
+    if (grepl("FORECAST/ADVISORY NUMBER", lines[i])) {
+      if (grepl("^SPECIAL", lines[i]) || grepl("^FORECAST", lines[i])) { #cases where the line begins with (Special) Forecast... and does not have name+level on line
+        
         level_and_name <- parseStormLevelAndName(lines[i-1])
+        
+        print(level_and_name)
         curr_row$storm_level <- level_and_name[1]
         curr_row$storm_name <- level_and_name[2]
       } else {
@@ -139,6 +163,12 @@ parseActualLines <- function(lines) {
       }
       if (grepl("^[0-9]", lines[i + 2])) {
         date_and_time <- parseFileDateAndTime(lines[i + 2])
+        curr_row$file_date <- date_and_time[1]
+        curr_row$file_time <- date_and_time[2]
+        curr_row$date <- curr_row$file_date
+        curr_row$time <- curr_row$file_time
+      } else {
+        date_and_time <- parseFileDateAndTime(lines[i + 3])
         curr_row$file_date <- date_and_time[1]
         curr_row$file_time <- date_and_time[2]
         curr_row$date <- curr_row$file_date
@@ -184,25 +214,19 @@ parseActualLines <- function(lines) {
 
 parseForecastDayTimeLatLong <- function(line) {
   words <- strsplit(line, " ")
-
-  day <- substr(words[[1]][3], 1, 2)
-  time <- substr(words[[1]][3], 4, 7)
-  if (length(words[[1]]) == 3) {
-    #print(line)
+  x <- str_extract_all(line,"\\(?[0-9]+\\)?")[[1]]
+  lat_long <- str_extract_all(line, "[0-9]+\\.[0-9]+")[[1]]
+  day <- x[1]
+  time <- x[2]
+  if (!grepl("[0-9]+\\.[0-9]+", line)) {
     lat <- NA
     long <- NA
   } else {
-    lat <- words[[1]][4]
-    long <- words[[1]][6]
+    lat <- lat_long[1]
+    long <- lat_long[2]
     if (is.na(day) || is.na(time) || is.na(lat) || is.na(long)) {
-      if(!grepl("DISSIPAT", line) && !grepl("EXTRATROPICAL", line)
-         && !grepl("ABSORBED", line) && !grepl("REMNANT LOW", line) && !grepl("ASBORBED", line)) { #last part recorders made typo
-        long <- substr(words[[1]][5], 1, 6)
-        if (is.na(day) || is.na(time) || is.na(lat) || is.na(long)) {
-          print("BAD FORECAST day/time/lat/long")
-          print(line)
-        }
-      }
+      print("BAD FORECAST day/time/lat/long")
+      print(line)
     }
   }
   return(c(day,time,lat,long))
@@ -279,6 +303,10 @@ changeListDateTime <- function(l1) {
   file_month <- substr(file_date, 1, 2)
   file_year <- substr(file_date, 7, 10)
   forecast_day <- l1$date
+  if(is.na(file_day)) {
+    print(file_date)
+    print(l1)
+  }
   if (as.numeric(forecast_day) > as.numeric(file_day)) {
     l1$date <- paste(file_month, "/", forecast_day, "/", file_year, sep = "")
   } else {
@@ -322,6 +350,7 @@ parseTextToRows <- function(fileName, year) {
     file_date <- storm_rows_list[[1]]$file_date
     file_time <- storm_rows_list[[1]]$file_time
     forecast_rows <- lapply(forecast_rows, changeListFileDateTime, file_date=file_date, file_time=file_time)
+    #print(storm_rows_list)
     forecast_rows <- lapply(forecast_rows, changeListDateTime)
     forecast_rows <- lapply(forecast_rows, fixLongDotsCase)
     storm_rows_list <- append(storm_rows_list, forecast_rows)
@@ -333,19 +362,35 @@ parseTextToRows <- function(fileName, year) {
   return(storm_rows_list)
 }
 
+updateStormName <- function(l1, name, year) {
+  l1$storm_name <- paste("", year, "_", name, sep = "")
+  return(l1)
+}
+
 parseStormToRows <- function(storm_folder_dir, files, year) {
   storm_list_of_rows <- list()
   for(file in files) {
     #storm_list_of_rows <- append(storm_list_of_rows, parseTextToRows(file, year))
     ##### do i just want to append here?? ##################
-    storm_list_of_rows <- append(storm_list_of_rows, 
-                                 parseTextToRows(paste(storm_folder_dir, "/", file, sep = ""), year))
+    storm_rows <- parseTextToRows(paste(storm_folder_dir, "/", file, sep = ""), year)
+    storm_list_of_rows <- append(storm_list_of_rows, storm_rows)
     ####TODO: let's get the last row and change every row's name to the last one's name ####
     
   }
+  for(i in range(length(storm_list_of_rows):1)) {
+    storm_name <- storm_list_of_rows[[i]]$storm_name
+    if (!is.na(storm_name)) {
+     #print(storm_name)
+     storm_list_of_rows <- lapply(storm_list_of_rows, updateStormName, name=storm_name, year=year)
+     #print(storm_list_of_rows)
+     break
+    }
+  }
+  #print(storm_list_of_rows[[1]])
   return(storm_list_of_rows)
 }
 
+storm_rows <- list()
 for(year in years) {
   year_dir <- paste(main_dir, year, sep = "")
   setwd(year_dir)
@@ -356,9 +401,10 @@ for(year in years) {
       files <- list.files(path=storm_folder_dir, pattern="*.txt", full.names=FALSE, recursive=FALSE)
       #print(files)
       #rows <- parseStormToRows(storm_folder_dir, files, year)
-      parseStormToRows(storm_folder_dir, files, year)
+      storm_rows <- append(storm_rows, parseStormToRows(storm_folder_dir, files, year))
     }
-    
-    #files <- list.files(path=getwd(), pattern="*.txt", full.names=FALSE, recursive=FALSE)
   }
 }
+
+storm_table <- do.call('rbind', lapply(storm_rows, data.frame))
+write.table(storm_table, file="../test.csv", sep=",", append=F, row.names=F, col.names=T)
