@@ -262,6 +262,45 @@ parseForecastLines <- function(lines) {
   return(forecast_rows)
 }
 
+changeListStormName <- function(l1, name) {
+  l1$storm_name <- name
+  return(l1)
+}
+
+changeListFileDateTime <- function(l1, file_date, file_time) {
+  l1$file_date <- file_date
+  l1$file_time <- file_time
+  return(l1)
+} 
+
+changeListDateTime <- function(l1) {
+  file_date <- l1$file_date
+  file_day <- substr(file_date, 4, 5)
+  file_month <- substr(file_date, 1, 2)
+  file_year <- substr(file_date, 7, 10)
+  forecast_day <- l1$date
+  if (as.numeric(forecast_day) > as.numeric(file_day)) {
+    l1$date <- paste(file_month, "/", forecast_day, "/", file_year, sep = "")
+  } else {
+    if (file_month == "12") {
+      l1$date <- paste("01", "/", forecast_day, "/", as.numeric(file_year) + 1, sep = "")
+    } else {
+      l1$date <- paste("", as.numeric(file_month) + 1, "/", forecast_day, "/", file_year, sep = "")
+    }
+  }
+  return(l1)
+}
+
+fixLongDotsCase <- function(l1) {
+  if(grepl("\\.\\.\\.", l1$lat)) {
+    print(l1)
+  }
+  if (grepl("\\.\\.\\.", l1$long)) {
+    l1$long <- substr(l1$long, 1, regexpr("\\.\\.\\.", l1$long) - 1)
+  }
+  return(l1)
+}
+
 parseTextToRows <- function(fileName, year) {
   print(fileName)
   conn <- file(fileName, "r")
@@ -279,7 +318,13 @@ parseTextToRows <- function(fileName, year) {
   
   if (actual_last_line > 0) {
     storm_rows_list <- append(storm_rows_list, parseActualLines(lines[1:actual_last_line]))
-    storm_rows_list <- append(storm_rows_list, parseForecastLines(lines[actual_last_line+1:length(lines)]))
+    forecast_rows <- parseForecastLines(lines[actual_last_line+1:length(lines)])
+    file_date <- storm_rows_list[[1]]$file_date
+    file_time <- storm_rows_list[[1]]$file_time
+    forecast_rows <- lapply(forecast_rows, changeListFileDateTime, file_date=file_date, file_time=file_time)
+    forecast_rows <- lapply(forecast_rows, changeListDateTime)
+    forecast_rows <- lapply(forecast_rows, fixLongDotsCase)
+    storm_rows_list <- append(storm_rows_list, forecast_rows)
   } else {
     storm_rows_list <- append(storm_rows_list, parseActualLines(lines))
   }
