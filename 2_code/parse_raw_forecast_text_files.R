@@ -22,7 +22,7 @@ month_nums <- c(JAN = "01", FEB = "02", MAR = "03", APR = "04", MAY = "05", JUN 
 
 
 initNewRow <- function() {
-  new_row <- list(storm_number=NA, storm_name=NA, storm_named = 0, storm_level=NA, file_date=NA, file_time=NA, date=NA, time=NA, 
+  new_row <- list(storm_name=NA, year_storm_number=NA, storm_named = 0, storm_level=NA, file_date=NA, file_time=NA, date=NA, time=NA, 
               is_forecast=NA, lat=NA, long=NA, max_wind=NA, gusts=NA, 
               eye_speed=NA, eye_location=NA, storm_end=NA)
   return(new_row)
@@ -241,20 +241,15 @@ parseForecastWindGusts <- function(line) {
   if (!grepl("MAX WIND", line) && !grepl("GUSTS", line)) {
     return(c(NA, NA))
   } else {
-    words <- strsplit(line, " ")
-    wind <- words[[1]][4]
-    gusts <- words[[1]][7]
+    x <- str_extract_all(line,"\\(?[0-9]+\\)?")[[1]]
+    wind <- x[1]
+    gusts <- x[2]
     if (is.na(wind) || is.na(gusts)) {
-      wind <- words[[1]][3]
-      gusts <- words[[1]][5]
-      if (is.na(wind) || is.na(gusts)) {
-        print("BAD FORECAST WIND/GUST")
-        print(line)
-      }
+      print("BAD FORECAST WIND/GUST")
+      print(line)
     }
     return(c(wind, gusts))
   }
-  
 }
 
 parseForecastLines <- function(lines) {
