@@ -22,7 +22,7 @@ month_nums <- c(JAN = "01", FEB = "02", MAR = "03", APR = "04", MAY = "05", JUN 
 
 
 initNewRow <- function() {
-  new_row <- list(storm_name=NA, year_storm_number=NA, storm_named = 0, storm_level=NA, file_date=NA, file_time=NA, date=NA, time=NA, 
+  new_row <- list(storm_name=NA, year_storm_number=NA, storm_named = "0", storm_level=NA, file_date=NA, file_time=NA, date=NA, time=NA, 
               is_forecast=NA, lat=NA, long=NA, max_wind=NA, gusts=NA, 
               eye_speed=NA, eye_location=NA, storm_end=NA)
   return(new_row)
@@ -50,9 +50,9 @@ parseStormLevelAndName <- function(line) {
   }
   
   if(is.element(storm_name, number_names) || is.na(storm_name)) {
-    storm_named <- 0
+    storm_named <- "0"
   } else {
-    storm_named <- 1
+    storm_named <- "1"
     #print(storm_name)
   }
   return(c(storm_level, storm_name, storm_named))
@@ -399,6 +399,19 @@ updateStormName <- function(l1, name, year) {
   return(l1)
 }
 
+setStormNamed <- function(x) {
+  #print(x)
+  x$storm_named <- "1"
+  return(x)
+}
+
+fixStormNamed <- function(x) {
+  if (is.na(x$storm_named)) {
+    x$storm_named <- "1"
+  }
+  return(x)
+}
+
 parseStormToRows <- function(storm_folder_dir, files, year) {
   storm_list_of_rows <- list()
   for(file in files) {
@@ -406,20 +419,34 @@ parseStormToRows <- function(storm_folder_dir, files, year) {
     storm_list_of_rows <- append(storm_list_of_rows, storm_rows)
     
   }
+  
   for(i in length(storm_list_of_rows):1) {
     is_forecast <- storm_list_of_rows[[i]]$is_forecast
-    gusts <- storm_list_of_rows[[i]]$gusts
-    if (is_forecast == 0 && !is.na(gusts)) {
+    if (is_forecast == 0) {
       storm_name <- storm_list_of_rows[[i]]$storm_name
       storm_list_of_rows <- lapply(storm_list_of_rows, updateStormName, name=storm_name, year=year)
       break
     }
   }
+  first_named <- FALSE
+  first_named_index <- -1
+  for(i in 1:length(storm_list_of_rows)) {
+    if (!first_named && storm_list_of_rows[[i]]$storm_named == 1) {
+      first_named <- TRUE
+      first_named_index <- i
+      #print(storm_list_of_rows[[i]])
+    } 
+  }
+  if (!first_named_index == -1) {
+    storm_list_of_rows[first_named_index:length(storm_list_of_rows)] <- 
+      lapply(storm_list_of_rows[first_named_index:length(storm_list_of_rows)], setStormNamed)
+  }
+  
   return(storm_list_of_rows)
 }
 
 setStormNumber <- function(x, num_storm) {
-  x$storm_number <- num_storm
+  x$year_storm_number <- num_storm
   return(x)
 }
 
