@@ -24,7 +24,10 @@ month_nums <- c(JAN = "01", FEB = "02", MAR = "03", APR = "04", MAY = "05", JUN 
 initNewRow <- function() {
   new_row <- list(storm_name=NA, year_storm_number=NA, storm_named = "0", storm_level=NA, file_date=NA, file_time=NA, date=NA, time=NA, 
               is_forecast=NA, lat=NA, long=NA, max_wind=NA, gusts=NA, 
-              eye_speed=NA, eye_location=NA, storm_end=NA)
+              eye_speed=NA, eye_location=NA, storm_end=NA, 
+              NE_64=NA, SE_64=NA, SW_64=NA, NW_64=NA,
+              NE_50=NA, SE_50=NA, SW_50=NA, NW_50=NA,
+              NE_34=NA, SE_34=NA, SW_34=NA, NW_34=NA)
   return(new_row)
 }
 
@@ -146,6 +149,19 @@ parsePrevLatLongAndTime <- function(line) {
   return(c(lat, long, time))
 }
 
+parseActualWinds <- function(line) {
+  # if (!grepl("NE", line) || !grepl("SE", line) || !grepl("SW", line) || !grepl("NW", line)) {
+  #   print("DIFF DIRECTIONS THAN NORMAL")
+  #   print(line)
+  # }
+  x <- str_extract_all(line,"\\(?[0-9]+\\)?")[[1]]
+  ne <- x[2]
+  se <- x[3]
+  sw <- x[4]
+  nw <- x[5]
+  return(c(ne, se, sw, nw))
+}
+
 parseActualLines <- function(lines) {
   curr_row <- initNewRow()
   three_hours_prev_row <- initNewRow()
@@ -200,6 +216,34 @@ parseActualLines <- function(lines) {
       curr_row$eye_speed <- eye_speed_and_loc[1]
       curr_row$eye_location <- eye_speed_and_loc[2]
     }
+    
+    if(grepl("^64 KT\\.\\.\\.", lines[i])) {
+      # if (!grepl("NE", lines[i]) || !grepl("SE", lines[i]) || !grepl("SW", lines[i]) || !grepl("NW", lines[i])) {
+      #   print("DIFF DIRECTIONS THAN NORMAL")
+      #   print(lines)
+      # }
+      winds <- parseActualWinds(lines[i])
+      curr_row$NE_64 <- winds[1]
+      curr_row$SE_64 <- winds[2]
+      curr_row$SW_64 <- winds[3]
+      curr_row$NW_64 <- winds[4]
+    } else if(grepl("^50 KT\\.\\.\\.", lines[i])) {
+      # if (!grepl("NE", lines[i]) || !grepl("SE", lines[i]) || !grepl("SW", lines[i]) || !grepl("NW", lines[i])) {
+      #   print("DIFF DIRECTIONS THAN NORMAL")
+      #   print(lines)
+      # }
+      winds <- parseActualWinds(lines[i])
+      curr_row$NE_50 <- winds[1]
+      curr_row$SE_50 <- winds[2]
+      curr_row$SW_50 <- winds[3]
+      curr_row$NW_50 <- winds[4]
+    } else if(grepl("^34 KT\\.\\.\\.", lines[i])) {
+      winds <- parseActualWinds(lines[i])
+      curr_row$NE_34 <- winds[1]
+      curr_row$SE_34 <- winds[2]
+      curr_row$SW_34 <- winds[3]
+      curr_row$NW_34 <- winds[4]
+    }
   }
   three_hours_prev_row$storm_name <- curr_row$storm_name
   three_hours_prev_row$file_date <- curr_row$file_date
@@ -252,6 +296,19 @@ parseForecastWindGusts <- function(line) {
   }
 }
 
+parseForecastWinds <- function(line) {
+  # if (!grepl("NE", line) || !grepl("SE", line) || !grepl("SW", line) || !grepl("NW", line)) {
+  #   print("DIFF DIRECTIONS THAN NORMAL FORECAST")
+  #   print(line)
+  # }
+  x <- str_extract_all(line,"\\(?[0-9]+\\)?")[[1]]
+  ne <- x[2]
+  se <- x[3]
+  sw <- x[4]
+  nw <- x[5]
+  return(c(ne, se, sw, nw))
+}
+
 parseForecastLines <- function(lines) {
   forecast_rows <- list()
   for (i in 1:length(lines)) {
@@ -280,6 +337,35 @@ parseForecastLines <- function(lines) {
       wind_gusts <- parseForecastWindGusts(lines[i+1])
       forecast_row$max_wind <- wind_gusts[1]
       forecast_row$gusts <- wind_gusts[2]
+      
+      for(j in i+2:i+4) {
+        if(grepl("^64 KT\\.\\.\\.", lines[j])) {
+          winds <- parseForecastWinds(lines[j])
+          forecast_row$NE_64 <- winds[1]
+          forecast_row$SE_64 <- winds[2]
+          forecast_row$SW_64 <- winds[3]
+          forecast_row$NW_64 <- winds[4]
+        } else if(grepl("^50 KT\\.\\.\\.", lines[j])) {
+          # if (!grepl("NE", lines[j]) || !grepl("SE", lines[j]) || !grepl("SW", lines[j]) || !grepl("NW", lines[j])) {
+          #   print("DIFF DIRECTIONS THAN NORMAL FORECAST")
+          #   print(lines)
+          # }
+          winds <- parseForecastWinds(lines[j])
+          forecast_row$NE_50 <- winds[1]
+          forecast_row$SE_50 <- winds[2]
+          forecast_row$SW_50 <- winds[3]
+          forecast_row$NW_50 <- winds[4]
+        } else if(grepl("^34 KT\\.\\.\\.", lines[j])) {
+          winds <- parseForecastWinds(lines[j])
+          forecast_row$NE_34 <- winds[1]
+          forecast_row$SE_34 <- winds[2]
+          forecast_row$SW_34 <- winds[3]
+          forecast_row$NW_34 <- winds[4]
+        } else if(grepl("^[0-9]+ KT\\.\\.\\.", lines[j])) {
+          print("doesnt start with three speeds")
+          print(lines[j])
+        }
+      }
       forecast_rows <- append(forecast_rows, list(forecast_row))
     }
   }
@@ -364,6 +450,11 @@ fixLongDotsCase <- function(l1) {
   return(l1)
 }
 
+propagateStormLevel <- function(x, storm_level) {
+  x$storm_level <- storm_level
+  return(x)
+}
+
 parseTextToRows <- function(fileName, year) {
   conn <- file(fileName, "r")
   lines <- readLines(conn)
@@ -390,6 +481,8 @@ parseTextToRows <- function(fileName, year) {
   } else {
     storm_rows_list <- append(storm_rows_list, parseActualLines(lines))
   }
+  level <- storm_rows_list[[1]]$storm_level
+  storm_rows_list <- lapply(storm_rows_list, propagateStormLevel, storm_level=level)
   close(conn)
   return(storm_rows_list)
 }
@@ -450,11 +543,22 @@ setStormNumber <- function(x, num_storm) {
   return(x)
 }
 
+checkStormEnd <- function(rows) {
+  for(row in rows) {
+    if (row$storm_end == 1) {
+      return(TRUE)
+    }
+  }
+  return(FALSE)
+}
+
 storm_rows <- list()
+num_storms <- 0
 for(year in years) {
   year_dir <- paste(main_dir, year, sep = "")
   setwd(year_dir)
   storm_folders <- list.dirs(path = ".", full.names = FALSE, recursive = TRUE)
+  
   for(storm_folder in storm_folders) {
     if (storm_folder != "") {
       storm_folder_dir <- paste(year_dir, "/", storm_folder, sep = "")
@@ -462,6 +566,7 @@ for(year in years) {
       rows <- parseStormToRows(storm_folder_dir, files, year)
       rows <- lapply(rows, setStormNumber, num_storm=storm_folder)
       storm_rows <- append(storm_rows, rows)
+      num_storms <- num_storms + 1
     }
   }
 }
